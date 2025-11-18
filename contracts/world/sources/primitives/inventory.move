@@ -102,7 +102,7 @@ public struct ItemWithdrawnEvent has copy, drop {
 // === View Functions ===
 // Helpful for wrapper functions
 public fun contains_item(inventory: &Inventory, item_id: u64): bool {
-    vec_map::contains(&inventory.items, &item_id)
+    inventory.items.contains(&item_id)
 }
 
 // === Public Functions ===
@@ -119,23 +119,23 @@ public fun burn_items(
     owner_cap: &OwnerCap,
     item_id: u64,
     quantity: u32,
-    location_hash: vector<u8>,
-    proximity_proof: vector<u8>,
+    _location_hash: vector<u8>,
+    _proximity_proof: vector<u8>,
 ) {
-    assert!(inventory.id == status::get_assembly_id(assembly_status), EInventoryAssemblyMismatch);
+    assert!(inventory.id == status::assembly_id(assembly_status), EInventoryAssemblyMismatch);
     assert!(authority::is_authorized(owner_cap, inventory.id), EInventoryAccessNotAuthorized);
-    assert!(vec_map::contains(&inventory.items, &item_id), EItemDoesNotExist);
+    assert!(inventory.items.contains(&item_id), EItemDoesNotExist);
     assert!(assembly_status.is_online(), ENotOnline);
 
     //TODO: Verify proximity
 
-    let item_ref = vec_map::get(&inventory.items, &item_id);
+    let item_ref = &inventory.items[&item_id];
     assert!(item_ref.quantity >= quantity, EInventoryInsufficientQuantity);
     let current_quantity = item_ref.quantity;
 
     // If burning all items, remove and delete the Item object
     if (current_quantity == quantity) {
-        let (_, removed_item) = vec_map::remove(&mut inventory.items, &item_id);
+        let (_, removed_item) = inventory.items.remove(&item_id);
         let volume_freed = calculate_volume(removed_item.volume, removed_item.quantity);
         inventory.used_capacity = inventory.used_capacity - volume_freed;
 
@@ -170,12 +170,12 @@ public fun mint_items(
     location_hash: vector<u8>,
     ctx: &mut TxContext,
 ) {
-    assert!(inventory.id == status::get_assembly_id(assembly_status), EInventoryAssemblyMismatch);
+    assert!(inventory.id == status::assembly_id(assembly_status), EInventoryAssemblyMismatch);
     assert!(item_id != 0, EItemIdEmpty);
     assert!(type_id != 0, ETypeIdEmpty);
     assert!(assembly_status.is_online(), ENotOnline);
 
-    if (vec_map::contains(&inventory.items, &item_id)) {
+    if (inventory.items.contains(&item_id)) {
         increase_item_quantity(inventory, item_id, quantity);
     } else {
         let item_uid = object::new(ctx);
@@ -240,9 +240,9 @@ public(package) fun deposit_item(inventory: &mut Inventory, item: Item) {
 // A wrapper function to transfer between inventories
 /// Withdraws the item with the specified item_id and returns the whole Item.
 public(package) fun withdraw_item(inventory: &mut Inventory, item_id: u64): Item {
-    assert!(vec_map::contains(&inventory.items, &item_id), EItemDoesNotExist);
+    assert!(inventory.items.contains(&item_id), EItemDoesNotExist);
 
-    let (_, item) = vec_map::remove(&mut inventory.items, &item_id);
+    let (_, item) = inventory.items.remove(&item_id);
     let volume_freed = calculate_volume(item.volume, item.quantity);
     inventory.used_capacity = inventory.used_capacity - volume_freed;
 
@@ -264,7 +264,7 @@ public(package) fun withdraw_item(inventory: &mut Inventory, item_id: u64): Item
 
 /// Increases the quantity value of an existing item in the specified inventory.
 fun increase_item_quantity(inventory: &mut Inventory, item_id: u64, quantity: u32) {
-    let item = vec_map::get_mut(&mut inventory.items, &item_id);
+    let item = &mut inventory.items[&item_id];
     let req_capacity = calculate_volume(item.volume, quantity);
 
     let remaining_capacity = inventory.max_capacity - inventory.used_capacity;
@@ -283,7 +283,7 @@ fun increase_item_quantity(inventory: &mut Inventory, item_id: u64, quantity: u3
 
 /// Reduces item quantity value  of an existing item in the specified inventory.
 fun reduce_item_quantity(inventory: &mut Inventory, item_id: u64, quantity: u32) {
-    let item = vec_map::get_mut(&mut inventory.items, &item_id);
+    let item = &mut inventory.items[&item_id];
     let volume_freed = calculate_volume(item.volume, quantity);
 
     let old_quantity = item.quantity;
@@ -319,17 +319,17 @@ public fun used_capacity(inventory: &Inventory): u64 {
 }
 
 #[test_only]
-public fun get_item_quantity(inventory: &Inventory, item_id: u64): u32 {
-    vec_map::get(&inventory.items, &item_id).quantity
+public fun item_quantity(inventory: &Inventory, item_id: u64): u32 {
+    inventory.items[&item_id].quantity
 }
 
 #[test_only]
-public fun get_item_location(inventory: &Inventory, item_id: u64): vector<u8> {
-    let item = vec_map::get(&inventory.items, &item_id);
-    location::get_hash(&item.location)
+public fun item_location(inventory: &Inventory, item_id: u64): vector<u8> {
+    let item = &inventory.items[&item_id];
+    location::hash(&item.location)
 }
 
 #[test_only]
-public fun get_inventory_item_length(inventory: &Inventory): u64 {
-    vec_map::length(&inventory.items)
+public fun inventory_item_length(inventory: &Inventory): u64 {
+    inventory.items.length()
 }

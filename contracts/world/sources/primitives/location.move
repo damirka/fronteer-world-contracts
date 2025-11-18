@@ -35,7 +35,7 @@ public fun in_proximity(_: vector<u8>, _: vector<u8>, _: vector<u8>): bool {
     true
 }
 
-public fun get_hash(location: &Location): vector<u8> {
+public fun hash(location: &Location): vector<u8> {
     location.location_hash
 }
 

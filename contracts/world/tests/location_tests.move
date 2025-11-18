@@ -63,7 +63,7 @@ fun update_assembly_location() {
             x"7a8f5b1e9c4d1a6f5e8b2d9c3f7a1e5b7a8f3b2e9c4d1a6f5e8b2d9c3f7a1e5b";
         location::update_location(&mut gate.location, &admin_cap, location_hash);
 
-        assert_eq!(location::get_hash(&gate.location), location_hash);
+        assert_eq!(location::hash(&gate.location), location_hash);
         ts::return_shared(gate);
         ts::return_to_sender(&ts, admin_cap);
     };

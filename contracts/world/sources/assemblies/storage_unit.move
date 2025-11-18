@@ -59,15 +59,15 @@ public struct StorageUnitCreatedEvent has copy, drop {
 }
 
 // === View Functions ===
-public fun get_status(storage_unit: &StorageUnit): &AssemblyStatus {
+public fun status(storage_unit: &StorageUnit): &AssemblyStatus {
     &storage_unit.status
 }
 
-public fun get_location(storage_unit: &StorageUnit): &Location {
+public fun location(storage_unit: &StorageUnit): &Location {
     &storage_unit.location
 }
 
-public fun get_inventory(storage_unit: &StorageUnit): &Inventory {
+public fun inventory(storage_unit: &StorageUnit): &Inventory {
     &storage_unit.inventory
 }
 
@@ -103,7 +103,7 @@ public fun create_storage_unit(
         storage_unit_id: assembly_id,
         max_capacity,
         location_hash,
-        status: status::get_status(&storage_unit.status),
+        status: status::status(&storage_unit.status),
     });
 
     storage_unit
@@ -137,7 +137,7 @@ public fun game_to_chain_inventory(
             type_id,
             volume,
             quantity,
-            storage_unit.location.get_hash(),
+            storage_unit.location.hash(),
             ctx,
         )
 }
@@ -196,7 +196,7 @@ public fun withdraw_by_owner(
 
 // === Test Functions ===
 #[test_only]
-public fun get_inventory_mut(storage_unit: &mut StorageUnit): &mut Inventory {
+public fun inventory_mut(storage_unit: &mut StorageUnit): &mut Inventory {
     &mut storage_unit.inventory
 }
 
@@ -206,8 +206,8 @@ public fun borrow_status_mut(storage_unit: &mut StorageUnit): &mut AssemblyStatu
 }
 
 #[test_only]
-public fun get_item_quantity(storage_unit: &StorageUnit, item_id: u64): u32 {
-    storage_unit.inventory.get_item_quantity(item_id)
+public fun item_quantity(storage_unit: &StorageUnit, item_id: u64): u32 {
+    storage_unit.inventory.item_quantity(item_id)
 }
 
 #[test_only]
