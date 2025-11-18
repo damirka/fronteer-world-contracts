@@ -52,6 +52,8 @@ jobs:
     strategy:
       matrix:
         package: [world]
+    name: Move Formatting ${{ matrix.package }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ${{ env.CONTRACTS_DIR }}/${{ matrix.package }}
