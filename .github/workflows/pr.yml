@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         package: [world]
-    name: Move Formatting: ${{ matrix.package }}
+    name: "Move Formatting: ${{ matrix.package }}"
     runs-on: ubuntu-latest
     defaults:
       run:
