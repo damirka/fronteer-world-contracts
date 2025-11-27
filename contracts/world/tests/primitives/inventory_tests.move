@@ -11,6 +11,8 @@ use world::{
     test_helpers::{Self, governor, admin, user_a, user_b, server_admin}
 };
 
+const STORAGE_TYPE_ID: u64 = 77069;
+const STORAGE_ITEM_ID: u64 = 5500004145107;
 const LOCATION_A_HASH: vector<u8> =
     x"7a8f3b2e9c4d1a6f5e8b2d9c3f7a1e5b7a8f3b2e9c4d1a6f5e8b2d9c3f7a1e5b";
 const MAX_CAPACITY: u64 = 1000;
@@ -18,6 +20,8 @@ const AMMO_TYPE_ID: u64 = 88069;
 const AMMO_ITEM_ID: u64 = 1000004145107;
 const AMMO_VOLUME: u64 = 100;
 const AMMO_QUANTITY: u32 = 10;
+const STATUS_ONLINE: u8 = 1;
+const STATUS_OFFLINE: u8 = 2;
 
 public struct StorageUnit has key {
     id: UID,
@@ -35,7 +39,7 @@ fun create_storage_unit(ts: &mut ts::Scenario): ID {
         let assembly_id = object::uid_to_inner(&uid);
         let storage_unit = StorageUnit {
             id: uid,
-            status: status::anchor(&admin_cap, assembly_id),
+            status: status::anchor(&admin_cap, assembly_id, STORAGE_TYPE_ID, STORAGE_ITEM_ID),
             location: location::attach_location(&admin_cap, assembly_id, LOCATION_A_HASH),
             inventory: inventory::create(&admin_cap, MAX_CAPACITY, assembly_id),
         };
@@ -52,7 +56,7 @@ fun online(ts: &mut ts::Scenario) {
         let mut storage_unit = ts::take_shared<StorageUnit>(ts);
         let owner_cap = ts::take_from_sender<OwnerCap>(ts);
         storage_unit.status.online(&owner_cap);
-        assert_eq!(storage_unit.status.status_to_u8(), 1);
+        assert_eq!(storage_unit.status.status_to_u8(), STATUS_ONLINE);
 
         ts::return_shared(storage_unit);
         ts::return_to_sender(ts, owner_cap);
@@ -94,7 +98,7 @@ fun create_assembly_with_inventory() {
     ts::next_tx(&mut ts, admin());
     {
         let storage_unit = ts::take_shared<StorageUnit>(&ts);
-        assert_eq!(storage_unit.status.status_to_u8(), 0);
+        assert_eq!(storage_unit.status.status_to_u8(), STATUS_OFFLINE);
         assert_eq!(storage_unit.location.hash(), LOCATION_A_HASH);
         assert_eq!(storage_unit.inventory.max_capacity(), MAX_CAPACITY);
         assert_eq!(storage_unit.inventory.used_capacity(), 0);
@@ -370,7 +374,7 @@ fun burn_items_with_proof() {
         let assembly_id = test_helpers::get_storage_unit_id();
         let storage_unit = StorageUnit {
             id: uid,
-            status: status::anchor(&admin_cap, assembly_id),
+            status: status::anchor(&admin_cap, assembly_id, STORAGE_TYPE_ID, STORAGE_ITEM_ID),
             location: location::attach_location(&admin_cap, assembly_id, verified_location_hash),
             inventory: inventory::create(&admin_cap, MAX_CAPACITY, assembly_id),
         };
@@ -460,7 +464,7 @@ fun create_assembly_fail_on_empty_capacity() {
         let assembly_id = object::uid_to_inner(&uid);
         let storage_unit = StorageUnit {
             id: uid,
-            status: status::anchor(&admin_cap, assembly_id),
+            status: status::anchor(&admin_cap, assembly_id, STORAGE_TYPE_ID, STORAGE_ITEM_ID),
             location: location::attach_location(&admin_cap, assembly_id, LOCATION_A_HASH),
             inventory: inventory::create(&admin_cap, 0, assembly_id),
         };
@@ -734,7 +738,12 @@ fun deposit_item_fail_insufficient_capacity() {
         ephemeral_storage_unit_id = object::uid_to_inner(&uid);
         let ephemeral_storage_unit = StorageUnit {
             id: uid,
-            status: status::anchor(&admin_cap, ephemeral_storage_unit_id),
+            status: status::anchor(
+                &admin_cap,
+                ephemeral_storage_unit_id,
+                STORAGE_TYPE_ID,
+                STORAGE_ITEM_ID,
+            ),
             location: location::attach_location(
                 &admin_cap,
                 ephemeral_storage_unit_id,

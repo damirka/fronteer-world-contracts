@@ -18,28 +18,38 @@ const EAssemblyNotAuthorized: vector<u8> = b"Assembly access not authorized";
 // === Structs ===
 // After "unanchor" or "destroy" the State will not be available as the object will have been deleted.
 public enum Status has copy, drop, store {
+    NULL,
+    OFFLINE,
+    ONLINE,
+}
+
+public enum Action has copy, drop, store {
     ANCHORED,
     ONLINE,
-    DESTROYED,
+    OFFLINE,
+    UNANCHORED,
 }
 
 public struct AssemblyStatus has store {
     assembly_id: ID, // mapping to the assembly object id
     status: Status,
-    // TODO: add a reference to an energy source to check if it has enough energy to online
+    type_id: u64,
+    item_id: u64,
 }
 
 // === Events ===
 public struct StatusChangedEvent has copy, drop {
     assembly_id: ID,
     status: Status,
+    item_id: u64,
+    action: Action,
 }
 
 // === Public Functions ===
 
 /// Online an assembly
 public fun online(assembly_status: &mut AssemblyStatus, owner_cap: &OwnerCap) {
-    assert!(assembly_status.status == Status::ANCHORED, EAssemblyInvalidStatus);
+    assert!(assembly_status.status == Status::OFFLINE, EAssemblyInvalidStatus);
     assert!(
         authority::is_authorized(owner_cap, assembly_status.assembly_id),
         EAssemblyNotAuthorized,
@@ -49,6 +59,8 @@ public fun online(assembly_status: &mut AssemblyStatus, owner_cap: &OwnerCap) {
     event::emit(StatusChangedEvent {
         assembly_id: assembly_status.assembly_id,
         status: assembly_status.status,
+        item_id: assembly_status.item_id,
+        action: Action::ONLINE,
     });
 }
 
@@ -61,10 +73,12 @@ public fun offline(assembly_status: &mut AssemblyStatus, owner_cap: &OwnerCap) {
         authority::is_authorized(owner_cap, assembly_status.assembly_id),
         EAssemblyNotAuthorized,
     );
-    assembly_status.status = Status::ANCHORED;
+    assembly_status.status = Status::OFFLINE;
     event::emit(StatusChangedEvent {
         assembly_id: assembly_status.assembly_id,
         status: assembly_status.status,
+        item_id: assembly_status.item_id,
+        action: Action::OFFLINE,
     });
 }
 
@@ -84,14 +98,23 @@ public fun is_online(assembly_status: &AssemblyStatus): bool {
 
 // === Package Functions ===
 /// Anchors an assmebly and returns an instance of the status
-public(package) fun anchor(_: &AdminCap, assembly_id: ID): AssemblyStatus {
+public(package) fun anchor(
+    _: &AdminCap,
+    assembly_id: ID,
+    type_id: u64,
+    item_id: u64,
+): AssemblyStatus {
     let assembly_status = AssemblyStatus {
         assembly_id: assembly_id,
-        status: Status::ANCHORED,
+        status: Status::OFFLINE,
+        type_id: type_id,
+        item_id: item_id,
     };
     event::emit(StatusChangedEvent {
         assembly_id: assembly_id,
         status: assembly_status.status,
+        item_id: assembly_status.item_id,
+        action: Action::ANCHORED,
     });
     assembly_status
 }
@@ -99,25 +122,27 @@ public(package) fun anchor(_: &AdminCap, assembly_id: ID): AssemblyStatus {
 /// Unanchor/Delete an assembly
 public(package) fun unanchor(assembly_status: AssemblyStatus, _: &AdminCap) {
     assert!(
-        assembly_status.status == Status::ANCHORED || assembly_status.status == Status::ONLINE,
+        assembly_status.status == Status::OFFLINE || assembly_status.status == Status::ONLINE,
         EAssemblyInvalidStatus,
     );
 
     // This event is only for informing the indexers of the status change
     event::emit(StatusChangedEvent {
         assembly_id: assembly_status.assembly_id,
-        status: Status::DESTROYED,
+        item_id: assembly_status.item_id,
+        status: Status::NULL,
+        action: Action::UNANCHORED,
     });
 
-    let AssemblyStatus { assembly_id: _, status: _ } = assembly_status;
+    let AssemblyStatus { assembly_id: _, status: _, type_id: _, item_id: _ } = assembly_status;
 }
 
 // === Test Functions ===
 #[test_only]
 public fun status_to_u8(assembly_status: &AssemblyStatus): u8 {
     match (assembly_status.status) {
-        Status::ANCHORED => 0,
+        Status::NULL => 0,
         Status::ONLINE => 1,
-        Status::DESTROYED => 2,
+        Status::OFFLINE => 2,
     }
 }
