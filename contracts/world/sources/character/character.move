@@ -57,7 +57,7 @@ fun init(ctx: &mut TxContext) {
 // === Public Functions ===
 public fun rename_character(character: &mut Character, owner_cap: &OwnerCap, name: String) {
     assert!(authority::is_authorized(owner_cap, object::id(character)), ECharacterNotAuthorized);
-    assert!(std::string::length(&name) > 0, ECharacterNameEmpty);
+    assert!(name.length() > 0, ECharacterNameEmpty);
 
     // TODO: emit events
     character.name = name;
@@ -75,7 +75,7 @@ public fun create_character(
 ): Character {
     assert!(game_character_id != 0, EGameCharacterIdEmpty);
     assert!(tribe_id != 0, ETribeIdEmpty);
-    assert!(std::string::length(&tenant) > 0, ETenantEmpty);
+    assert!(tenant.length() > 0, ETenantEmpty);
 
     // Claim a derived UID using the game character id and tenant id as the key
     // This ensures deterministic character id  generation and prevents duplicate character creation under the same game id.
@@ -111,7 +111,7 @@ public fun update_tribe(character: &mut Character, _: &AdminCap, tribe_id: u32) 
 
 // for emergencies
 public fun update_tenent_id(character: &mut Character, _: &AdminCap, tenant: String) {
-    assert!(string::length(&tenant) > 0, ETenantEmpty);
+    assert!(tenant.length() > 0, ETenantEmpty);
     // TODO: emit events
     let current_id = game_id::id(&character.key);
     character.key = game_id::create_key(current_id, tenant);
