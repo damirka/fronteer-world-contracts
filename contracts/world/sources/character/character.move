@@ -7,7 +7,7 @@ module world::character;
 
 use std::string::{Self, String};
 use sui::{derived_object, event};
-use world::{authority::{Self, OwnerCap, AdminCap}, game_id::{Self, GameId}};
+use world::{authority::{Self, OwnerCap, AdminCap}, game_id::{Self, DerivationKey}};
 
 #[error(code = 0)]
 const EGameCharacterIdEmpty: vector<u8> = b"Game character ID is empty";
@@ -33,7 +33,7 @@ public struct CharacterRegistry has key {
 
 public struct Character has key {
     id: UID,
-    key: GameId,
+    key: DerivationKey, // The derivation key used to generate the character's object ID
     tribe_id: u32,
     name: String,
 }
@@ -113,7 +113,7 @@ public fun update_tribe(character: &mut Character, _: &AdminCap, tribe_id: u32) 
 public fun update_tenent_id(character: &mut Character, _: &AdminCap, tenant: String) {
     assert!(string::length(&tenant) > 0, ETenantEmpty);
     // TODO: emit events
-    let current_id = game_id::id(&character.key);
+    let current_id = game_id::item_id(&character.key);
     character.key = game_id::create_key(current_id, tenant);
 }
 
@@ -136,7 +136,7 @@ public fun id(character: &Character): ID {
 
 #[test_only]
 public fun game_character_id(character: &Character): u32 {
-    game_id::id(&character.key) as u32
+    game_id::item_id(&character.key) as u32
 }
 
 #[test_only]
