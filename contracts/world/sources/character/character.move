@@ -5,7 +5,7 @@
 
 module world::character;
 
-use std::string::{Self, String};
+use std::string::String;
 use sui::{derived_object, event};
 use world::{authority::{Self, OwnerCap, AdminCap}, game_id::{Self, GameId}};
 
