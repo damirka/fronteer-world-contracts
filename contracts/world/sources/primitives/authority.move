@@ -8,7 +8,7 @@
 /// This hierarchy allows for delegation of permissions:
 /// - Governor can create/delete AdminCaps for specific addresses
 /// - Admins can create/transfer/delete OwnerCaps
-/// Future: Capability registry to support multi party access/shared control. (eg: A capability for corporatio/tribe with multiple members)
+/// Future: Capability registry to support multi party access/shared control. (eg: A capability for corporation/tribe with multiple members)
 /// Capabilities based on different roles/permission in a corporation/tribe.
 
 module world::authority;
@@ -21,9 +21,21 @@ public struct AdminCap has key {
     admin: address,
 }
 
+/// `OwnerCap` serves as a transferable capability ("KeyCard") for accessing and mutating shared objects.
+///
+/// This capability pattern allows:
+/// 1. Centralized on-chain ownership
+/// 2. Granular access control for shared objects (e.g., Characters, Assemblies) that live on-chain.
+/// 3. Delegation of rights by transferring the OwnerCap without moving the underlying object.
+///
+/// Fields:
+/// - `access_to`: The ID of the specific object this KeyCard grants mutation access to.
+/// - `belongs_to`: The ID of the in-game entity (e.g., Character or Tribe ID) that logically owns this resource.
+///                 This allows mapping on-chain objects back to game context.
 public struct OwnerCap has key {
     id: UID,
-    owned_object_id: ID,
+    access_to: ID,
+    belongs_to: ID,
 }
 
 /// Registry of authorized server addresses that can sign location proofs.
@@ -33,9 +45,22 @@ public struct ServerAddressRegistry has key {
     authorized_address: Table<address, bool>,
 }
 
+// === Events ===
 public struct AdminCapCreatedEvent has copy, drop {
     admin_cap_id: ID,
     admin: address,
+}
+
+public struct OwnerCapCreatedEvent has copy, drop {
+    owner_cap_id: ID,
+    access_to: ID,
+    belongs_to: ID, // This field will be removed in future
+}
+
+public struct OwnerCapTransferred has copy, drop {
+    owner_cap_id: ID,
+    access_to: ID,
+    belongs_to: ID,
 }
 
 public struct ServerAddressRegistryCreated has copy, drop {
@@ -77,14 +102,40 @@ public fun delete_admin_cap(admin_cap: AdminCap, _: &GovernorCap) {
     id.delete();
 }
 
-public fun create_owner_cap(_: &AdminCap, owned_object_id: ID, ctx: &mut TxContext): OwnerCap {
-    OwnerCap {
+public fun create_owner_cap(
+    _: &AdminCap,
+    object_id: ID,
+    belongs_to: ID,
+    ctx: &mut TxContext,
+): OwnerCap {
+    let owner_cap = OwnerCap {
         id: object::new(ctx),
-        owned_object_id: owned_object_id,
-    }
+        access_to: object_id,
+        belongs_to: belongs_to,
+    };
+    OwnerCapCreatedEvent {
+        owner_cap_id: object::id(&owner_cap),
+        access_to: object_id,
+        belongs_to: belongs_to,
+    };
+    owner_cap
 }
 
-public fun transfer_owner_cap(owner_cap: OwnerCap, _: &AdminCap, owner: address) {
+// Note: Currently, OwnerCap transfers are restrited via contracts
+// Future: This restriction may be lifted to allow free transfers
+public fun transfer_owner_cap(
+    mut owner_cap: OwnerCap,
+    _: &AdminCap,
+    belongs_to: ID,
+    owner: address,
+) {
+    owner_cap.belongs_to = belongs_to;
+
+    OwnerCapTransferred {
+        owner_cap_id: object::id(&owner_cap),
+        access_to: owner_cap.access_to,
+        belongs_to: belongs_to,
+    };
     transfer::transfer(owner_cap, owner);
 }
 
@@ -121,7 +172,7 @@ public fun delete_owner_cap(owner_cap: OwnerCap, _: &AdminCap) {
 // Checks if the `OwnerCap` is allowed to access the object with the given `object_id`.
 /// Returns true iff the `OwnerCap` has mutation access for the specified object.
 public fun is_authorized(owner_cap: &OwnerCap, object_id: ID): bool {
-    owner_cap.owned_object_id == object_id
+    owner_cap.access_to == object_id
 }
 
 #[test_only]

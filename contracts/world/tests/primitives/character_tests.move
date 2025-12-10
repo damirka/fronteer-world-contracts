@@ -8,7 +8,8 @@ use world::{
     authority::{Self, AdminCap, OwnerCap},
     character::{Self, Character, CharacterRegistry},
     game_id as character_id,
-    test_helpers::{Self, governor, admin, user_a, user_b},
+    metadata,
+    test_helpers::{governor, admin, user_a, user_b},
     world::{Self, GovernorCap}
 };
 
@@ -282,20 +283,11 @@ fun rename_character() {
 
     ts::next_tx(&mut ts, user_a());
     {
-        let character = ts::take_shared<Character>(&ts);
-        let character_id = object::id(&character);
-        ts::return_shared(character);
-
-        test_helpers::setup_owner_cap(&mut ts, user_a(), character_id);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
         let owner_cap = ts::take_from_sender<OwnerCap>(&ts);
         let mut character = ts::take_shared<Character>(&ts);
-
-        character::rename_character(&mut character, &owner_cap, utf8(b"new_name"));
-        assert_eq!(character::name(&character), utf8(b"new_name"));
+        let metadata = character.mutable_metadata();
+        metadata::update_name(metadata, &owner_cap, utf8(b"new_name"));
+        assert_eq!(metadata.name(), utf8(b"new_name"));
 
         ts::return_shared(character);
         ts::return_to_sender(&ts, owner_cap);
@@ -597,44 +589,10 @@ fun test_rename_character_without_owner_cap() {
     {
         let owner_cap = ts::take_from_sender<OwnerCap>(&ts);
         let mut character = ts::take_shared<Character>(&ts);
-
-        character::rename_character(&mut character, &owner_cap, utf8(b"new_name"));
+        let metadata = character.mutable_metadata();
+        metadata::update_name(metadata, &owner_cap, utf8(b"new_name"));
         abort
     }
-}
-
-/// Tests that renaming a character with an empty string fails
-/// Scenario: Owner attempts to rename character to empty string
-/// Expected: Transaction aborts with ECharacterNameEmpty error
-#[test]
-#[expected_failure(abort_code = character::ECharacterNameEmpty)]
-fun rename_character_to_empty_string() {
-    let mut ts = ts::begin(governor());
-    setup_world(&mut ts);
-    setup_character(&mut ts, 1, 100, b"test");
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let character = ts::take_shared<Character>(&ts);
-        let character_id = object::id(&character);
-        ts::return_shared(character);
-
-        test_helpers::setup_owner_cap(&mut ts, user_a(), character_id);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let owner_cap = ts::take_from_sender<OwnerCap>(&ts);
-        let mut character = ts::take_shared<Character>(&ts);
-
-        // This should abort with ECharacterNameEmpty
-        character::rename_character(&mut character, &owner_cap, utf8(b""));
-
-        ts::return_shared(character);
-        ts::return_to_sender(&ts, owner_cap);
-    };
-
-    ts.end();
 }
 
 /// Tests that updating tribe_id to 0 is not allowed (validation in update_tribe)

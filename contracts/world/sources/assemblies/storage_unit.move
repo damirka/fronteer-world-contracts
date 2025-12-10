@@ -266,7 +266,7 @@ public fun anchor(
         status: status::anchor(assembly_id, type_id, item_id),
         location: location::attach(assembly_id, location_hash),
         inventory_keys: vector[],
-        metadata: option::none(),
+        metadata: option::none(), //todo : create metadata
         extension: option::none(),
     };
 
