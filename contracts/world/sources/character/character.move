@@ -27,6 +27,9 @@ const ECharacterNameEmpty: vector<u8> = b"Character name cannot be empty";
 #[error(code = 5)]
 const ETenantEmpty: vector<u8> = b"Tenant name cannot be empty";
 
+#[error(code = 5)]
+const EAddressEmpty: vector<u8> = b"Address name cannot be empty";
+
 public struct CharacterRegistry has key {
     id: UID,
 }
@@ -35,6 +38,7 @@ public struct Character has key {
     id: UID,
     key: DerivationKey, // The derivation key used to generate the character's object ID
     tribe_id: u32,
+    character_address: address,
     name: String,
 }
 
@@ -44,6 +48,7 @@ public struct CharacterCreatedEvent has copy, drop {
     game_character_id: u32,
     tenant: String,
     tribe_id: u32,
+    character_address: address,
     // TODO : use metadata instead
     name: String,
 }
@@ -70,12 +75,14 @@ public fun create_character(
     game_character_id: u32,
     tenant: String,
     tribe_id: u32,
+    character_address: address,
     name: String,
     _: &mut TxContext,
 ): Character {
     assert!(game_character_id != 0, EGameCharacterIdEmpty);
     assert!(tribe_id != 0, ETribeIdEmpty);
     assert!(std::string::length(&tenant) > 0, ETenantEmpty);
+    assert!(character_address != @0x0, EAddressEmpty);
 
     // Claim a derived UID using the game character id and tenant id as the key
     // This ensures deterministic character id  generation and prevents duplicate character creation under the same game id.
@@ -86,15 +93,17 @@ public fun create_character(
     let character = Character {
         id: character_uid,
         key: character_key,
-        tribe_id: tribe_id,
-        name: name,
+        tribe_id,
+        character_address,
+        name,
     };
     event::emit(CharacterCreatedEvent {
         character_id: object::id(&character),
         game_character_id: game_character_id,
-        tenant: tenant,
-        tribe_id: tribe_id,
-        name: name,
+        tenant,
+        tribe_id,
+        character_address,
+        name,
     });
     character
 }
@@ -107,6 +116,16 @@ public fun update_tribe(character: &mut Character, _: &AdminCap, tribe_id: u32) 
     assert!(tribe_id != 0, ETribeIdEmpty);
     // TODO: emit events
     character.tribe_id = tribe_id;
+}
+
+public fun update_character_address(
+    character: &mut Character,
+    _: &AdminCap,
+    character_address: address,
+) {
+    assert!(character_address != @0x0, EAddressEmpty);
+    // TODO: emit events
+    character.character_address = character_address;
 }
 
 // for emergencies
@@ -152,4 +171,9 @@ public fun name(character: &Character): String {
 #[test_only]
 public fun tenant(character: &Character): String {
     game_id::tenant(&character.key)
+}
+
+#[test_only]
+public fun character_address(character: &Character): address {
+    character.character_address
 }

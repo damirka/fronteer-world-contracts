@@ -5,7 +5,7 @@ module world::game_id;
 use std::string::String;
 
 // === Structs ===
-/// Represents a unique in-game identifier used to deterministically derive on-chain object IDs. 
+/// Represents a unique in-game identifier used to deterministically derive on-chain object IDs.
 public struct DerivationKey has copy, drop, store {
     item_id: u64,
     tenant: String,

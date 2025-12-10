@@ -44,6 +44,7 @@ fun setup_character(ts: &mut ts::Scenario, game_id: u32, tribe_id: u32, name: ve
             game_id,
             string::utf8(TENANT),
             tribe_id,
+            user_a(),
             utf8(name),
             ts::ctx(ts),
         );
@@ -130,6 +131,7 @@ fun deterministic_character_id() {
             game_id,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"test1"),
             ts::ctx(&mut ts),
         );
@@ -167,6 +169,7 @@ fun different_game_ids_produce_different_character_ids() {
             1u32,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"character1"),
             ts::ctx(&mut ts),
         );
@@ -187,6 +190,7 @@ fun different_game_ids_produce_different_character_ids() {
             2u32,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"character2"),
             ts::ctx(&mut ts),
         );
@@ -228,6 +232,7 @@ fun different_tenant_create_character_id() {
             game_id,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"characterA"),
             ts::ctx(&mut ts),
         );
@@ -247,6 +252,7 @@ fun different_tenant_create_character_id() {
             game_id,
             string::utf8(TENANT_A),
             100,
+            user_a(),
             utf8(b"characterA"),
             ts::ctx(&mut ts),
         );
@@ -371,6 +377,34 @@ fun create_character_with_empty_tribe_id() {
 }
 
 #[test]
+#[expected_failure(abort_code = character::EAddressEmpty)]
+fun create_character_with_empty_address() {
+    let mut ts = ts::begin(governor());
+    setup_world(&mut ts);
+    ts::next_tx(&mut ts, admin());
+    {
+        let admin_cap = ts::take_from_sender<AdminCap>(&ts);
+        let mut registry = ts::take_shared<CharacterRegistry>(&ts);
+        let character = character::create_character(
+            &mut registry,
+            &admin_cap,
+            123u32,
+            string::utf8(TENANT),
+            100,
+            @0x0,
+            utf8(b"test1"),
+            ts::ctx(&mut ts),
+        );
+        character::share_character(character, &admin_cap);
+
+        ts::return_shared(registry);
+        ts::return_to_sender(&ts, admin_cap);
+    };
+
+    abort
+}
+
+#[test]
 #[expected_failure(abort_code = character::ETenantEmpty)]
 fun create_character_with_empty_tenant() {
     let mut ts = ts::begin(governor());
@@ -386,6 +420,7 @@ fun create_character_with_empty_tenant() {
             123u32,
             string::utf8(EMPTY_TENANT),
             100,
+            user_a(),
             utf8(b"test1"),
             ts::ctx(&mut ts),
         );
@@ -419,6 +454,7 @@ fun duplicate_game_id_fails() {
             game_id,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"test1"),
             ts::ctx(&mut ts),
         );
@@ -440,6 +476,7 @@ fun duplicate_game_id_fails() {
             game_id,
             string::utf8(TENANT),
             200,
+            user_a(),
             utf8(b"test2"),
             ts::ctx(&mut ts),
         );
@@ -473,6 +510,7 @@ fun delete_recreate_character() {
             1u32,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"character1"),
             ts::ctx(&mut ts),
         );
@@ -502,6 +540,7 @@ fun delete_recreate_character() {
             1u32,
             string::utf8(TENANT),
             200,
+            user_a(),
             utf8(b"test2"),
             ts::ctx(&mut ts),
         );
@@ -535,6 +574,7 @@ fun create_character_without_admin_cap() {
             1,
             string::utf8(TENANT),
             100,
+            user_a(),
             utf8(b"test"),
             ts::ctx(&mut ts),
         );
