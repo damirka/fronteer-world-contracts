@@ -1,0 +1,9 @@
+[package]
+name = "world"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+
+[addresses]
+world = "0x0"
+
+[dependencies]
+identify = { r.mvr = "@potatoes/identify" }
