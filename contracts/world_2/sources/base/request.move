@@ -1,7 +1,14 @@
+/// Base component of the Request + Requirement system.
+/// Defines the `ApplicationRequest` type and the associated functions.
+///
+/// ApplicationRequest implements the 'Request' pattern (also called 'Punch-card'):
+/// - request is issued with a set of requirements (punch-slots)
+/// - requirements are removed and verified in services and components
+/// - once all requirements are satisfied, the request can be completed
 module world::request;
 
 use std::string::String;
-use world::requirement::{Requirement};
+use world::requirement::Requirement;
 
 /// Default version of the request.
 const VERSION: u64 = 1;
@@ -40,6 +47,9 @@ public fun complete(request: ApplicationRequest) {
 /// Join two identical requests together since path to verification is likely to
 /// be the same. This allows performing multiple identical requests in a single
 /// transaction
+///
+/// TODO: there may be unwanted side effects of this action, so should be held off
+///   until further investigation
 public fun join(base: &mut ApplicationRequest, other: ApplicationRequest) {
     let ApplicationRequest { action, version, requires } = other;
 

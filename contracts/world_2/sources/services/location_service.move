@@ -26,4 +26,6 @@ public fun requirement(location_hash: vector<u8>): Requirement {
 /// Verify proximity of a certain location. Implementation details omitted.
 public fun verify_proximity(request: &mut ApplicationRequest, proof: vector<u8>) {
     request.complete_requirement<ProximityToLocation>(internal::permit());
+
+    // TODO: implementation omitted
 }

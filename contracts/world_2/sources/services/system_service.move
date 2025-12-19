@@ -38,3 +38,8 @@ public fun confirm_sponsor_is_system(
     assert!(sa.sponsors.contains(&ctx.sponsor().destroy_or!(abort)));
     request.complete_requirement<SystemAuthorization>(internal::permit());
 }
+
+#[test_only]
+public fun confirm_for_testing(request: &mut ApplicationRequest) {
+    request.complete_requirement<SystemAuthorization>(internal::permit());
+}

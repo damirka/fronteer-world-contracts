@@ -17,8 +17,10 @@ public struct GateOwnerCap has key, store {
 }
 
 #[allow(lint(self_transfer))]
-///
-public fun new(location_hash: vector<u8>, ctx: &mut TxContext): ApplicationRequest {
+public fun new(
+    location_hash: vector<u8>,
+    ctx: &mut TxContext,
+): (Assembly, GateOwnerCap, ApplicationRequest) {
     let cap_id = object::new(ctx);
     let (assembly, request) = assembly::new(
         Gate {
@@ -31,10 +33,7 @@ public fun new(location_hash: vector<u8>, ctx: &mut TxContext): ApplicationReque
     );
 
     let cap = GateOwnerCap { id: cap_id, gate_id: object::id(&assembly) };
-
-    transfer::transfer(cap, ctx.sender());
-    assembly.share();
-    request
+    (assembly, cap, request)
 }
 
 /// Should have more arguments.

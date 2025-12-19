@@ -24,6 +24,7 @@ public struct Assembly has key {
     inner_type: TypeName,
     /// (Extra) requirements for interaction with the assembly.
     requirements: vector<Requirement>,
+    // TODO: base requirements - ones that cannot be deleted by the owner
 }
 
 public fun new<T: store>(
@@ -94,7 +95,7 @@ public fun requirements_mut<T: /* internal */ store>(
 ): &mut vector<Requirement> {
     assert!(df::exists_with_type<_, T>(&assembly.id, InnerKey())); // either
     assert!(type_name::with_original_ids<T>() == assembly.inner_type); // or
-    df::borrow_mut(&mut assembly.id, InnerKey())
+    &mut assembly.requirements
 }
 
 /// Interact with the Assembly. This function is used to initiate authorization
