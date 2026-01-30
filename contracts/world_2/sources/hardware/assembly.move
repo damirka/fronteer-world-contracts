@@ -14,6 +14,8 @@ const VERSION: u64 = 1;
 /// Key for the inner type of the Assembly.
 public struct InnerKey() has copy, drop, store;
 
+public struct OwnerCap has key, store { id: UID, assembly_id: ID }
+
 /// A base Assembly type which stores different types / categories of assemblies.
 public struct Assembly has key {
     id: UID,
@@ -22,6 +24,7 @@ public struct Assembly has key {
     category: String,
     location: Location,
     inner_type: TypeName,
+    owner_cap_id: Option<ID>,
     /// (Extra) requirements for interaction with the assembly.
     requirements: vector<Requirement>,
     // TODO: base requirements - ones that cannot be deleted by the owner
@@ -33,20 +36,25 @@ public fun new<T: store>(
     category: String,
     requirements: vector<Requirement>,
     ctx: &mut TxContext,
-): (Assembly, ApplicationRequest) {
+): (Assembly, OwnerCap, ApplicationRequest) {
     let location = location_service::new(location_hash);
     let mut assembly = Assembly {
         id: object::new(ctx),
         inner_type: type_name::with_original_ids<T>(),
+        owner_cap_id: option::none(),
         category,
         location,
         requirements,
     };
 
     df::add(&mut assembly.id, InnerKey(), inner);
+    let id = object::new(ctx);
+    assembly.owner_cap_id.fill(id.to_inner());
+    let owner_cap = OwnerCap { id, assembly_id: object::id(&assembly) };
 
     (
         assembly,
+        owner_cap,
         request::new(b"assembly:new".to_string())
             .with_requirement(requirement::new<SystemAuthorization>(vector[]))
             .with_version(VERSION)
@@ -65,6 +73,14 @@ public fun category(assembly: &Assembly): &String { &assembly.category }
 /// Get the requirements of the Assembly.
 public fun requirements(assembly: &Assembly): vector<Requirement> {
     assembly.requirements
+}
+
+/// Get the requirement with the given type. Returns None if the requirement is not found.
+public fun requirement_with_type<T>(assembly: &Assembly): Option<Requirement> {
+    assembly
+        .requirements
+        .find_index!(|requirement| requirement.is<T>())
+        .map!(|index| assembly.requirements[index])
 }
 
 /// Get the inner type of the Assembly.
@@ -111,6 +127,7 @@ public fun interact<T: /* internal */ store>(
     assembly
         .requirements
         .fold!(request::new(name), |request, requirement| request.with_requirement(requirement))
+        .with_assembly_id(assembly.id.to_inner())
         .with_version(VERSION)
         .build()
 }
@@ -118,4 +135,9 @@ public fun interact<T: /* internal */ store>(
 /// Share the Assembly after creating it with `new`.
 public fun share(assembly: Assembly) {
     transfer::share_object(assembly);
+}
+
+/// Check if the given cap matches the owner cap of the Assembly.
+public fun cap_matches(assembly: &Assembly, cap: &OwnerCap): bool {
+    assembly.owner_cap_id.is_some_and!(|owner_cap_id| owner_cap_id == cap.id.to_inner())
 }

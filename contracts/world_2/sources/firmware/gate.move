@@ -1,30 +1,22 @@
 module world::gate;
 
 use world::{
-    assembly::{Self, Assembly},
+    assembly::{Self, Assembly, OwnerCap},
     location_service,
     request::{Self, ApplicationRequest},
     requirement::Requirement
 };
 
-public struct Gate has store {
-    owner_cap_id: ID,
-}
-
-public struct GateOwnerCap has key, store {
-    id: UID,
-    gate_id: ID,
-}
+public struct Gate has store {}
 
 #[allow(lint(self_transfer))]
 public fun new(
     location_hash: vector<u8>,
     ctx: &mut TxContext,
-): (Assembly, GateOwnerCap, ApplicationRequest) {
-    let cap_id = object::new(ctx);
-    let (assembly, request) = assembly::new(
+): (Assembly, OwnerCap, ApplicationRequest) {
+    let (assembly, owner_cap, request) = assembly::new(
         Gate {
-            owner_cap_id: cap_id.to_inner(),
+            /* Gate fields could be here */
         },
         location_hash,
         b"Gate".to_string(),
@@ -32,8 +24,7 @@ public fun new(
         ctx,
     );
 
-    let cap = GateOwnerCap { id: cap_id, gate_id: object::id(&assembly) };
-    (assembly, cap, request)
+    (assembly, owner_cap, request)
 }
 
 /// Should have more arguments.
@@ -48,8 +39,8 @@ public fun jump(assembly: &mut Assembly /* location, smth else ??? */): Applicat
 }
 
 ///
-public fun add_requirement(assembly: &mut Assembly, cap: &GateOwnerCap, requirement: Requirement) {
-    assert!(cap.gate_id == object::id(assembly));
+public fun add_requirement(assembly: &mut Assembly, cap: &OwnerCap, requirement: Requirement) {
+    assert!(assembly.cap_matches(cap));
 
     let requirements = assembly.requirements_mut<Gate>(internal::permit());
     requirements.push_back(requirement);

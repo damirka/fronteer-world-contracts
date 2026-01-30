@@ -1,7 +1,15 @@
 module world::inventory_service;
 
+use format::format::format;
+use ptb::ptb;
+use std::type_name;
 use sui::bcs;
-use world::{item::Item, request::ApplicationRequest, requirement::{Self, Requirement}};
+use world::{
+    assembly::Assembly,
+    item::Item,
+    request::ApplicationRequest,
+    requirement::{Self, Requirement}
+};
 
 public struct HasItemQuantity has drop { type_id: u64, min_quantity: u32 }
 
@@ -12,7 +20,7 @@ public fun requirement(type_id: u64, min_quantity: u32): Requirement {
     )
 }
 
-///
+/// Verify that the request has the required item in possession.
 public fun verify_possession(request: &mut ApplicationRequest, item: &Item) {
     let requirement = request.complete_requirement<HasItemQuantity>(internal::permit());
     let (type_id, min_quantity) = from_bytes(requirement.data());
@@ -24,6 +32,44 @@ public fun verify_possession(request: &mut ApplicationRequest, item: &Item) {
 fun from_bytes(bytes: vector<u8>): (u64, u32) {
     let mut bcs = bcs::new(bytes);
     (bcs.peel_u64(), bcs.peel_u32())
+}
+
+#[allow(unused_function)]
+fun ptb_template(assembly: &Assembly): ptb::Command {
+    let package_id = *type_name::with_defining_ids<HasItemQuantity>().as_string();
+    let requirement = assembly.requirement_with_type<HasItemQuantity>().destroy_or!(abort);
+    let (type_id, min_quantity) = from_bytes(requirement.data());
+
+    let mut ptb = ptb::new();
+    let result = ptb.command(ptb::move_call(
+        package_id.to_string(),
+        "inventory_service",
+        "verify_possession",
+        vector[
+            ptb::ext_input("request"),
+            ptb::ext_input(
+                format("item({};{})", vector[type_id.to_string(), min_quantity.to_string()]),
+            ),
+        ],
+        vector[],
+    ));
+
+    ptb.command(ptb::move_call(
+        package_id.to_string(),
+        "inventory_service",
+        "show_proof_of_deposit",
+        vector[
+            result,
+        ],
+        vector[],
+    ))
+
+    abort
+}
+
+#[test_only]
+public fun ptb_template_for_testing(assembly: &Assembly): ptb::Command {
+    ptb_template(assembly)
 }
 
 // Thoughts on conventions for services:

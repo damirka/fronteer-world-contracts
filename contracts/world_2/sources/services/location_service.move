@@ -4,6 +4,8 @@
 ///   with requirements and proofs. What could work? Perhaps, Inventory?
 module world::location_service;
 
+use ptb::ptb;
+use std::type_name;
 use world::{request::ApplicationRequest, requirement::{Self, Requirement}};
 
 /// Location type, holds the in-game location hash.
@@ -26,6 +28,23 @@ public fun requirement(location_hash: vector<u8>): Requirement {
 /// Verify proximity of a certain location. Implementation details omitted.
 public fun verify_proximity(request: &mut ApplicationRequest, proof: vector<u8>) {
     request.complete_requirement<ProximityToLocation>(internal::permit());
-
     // TODO: implementation omitted
+}
+
+#[allow(unused_function)]
+fun ptb_template(): ptb::Command {
+    let package_id = *type_name::with_defining_ids<ProximityToLocation>().as_string();
+
+    ptb::move_call(
+        package_id.to_string(),
+        "inventory_service",
+        "verify_possession",
+        vector[ptb::ext_input("request"), ptb::ext_input("proximity_proof")],
+        vector[],
+    )
+}
+
+#[test_only]
+public fun ptb_template_for_testing(): ptb::Command {
+    ptb_template()
 }

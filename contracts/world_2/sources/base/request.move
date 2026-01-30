@@ -20,6 +20,7 @@ const EInvalidVersion: vector<u8> = b"Unable to complete request: invalid versio
 public struct ApplicationRequest {
     action: String,
     version: u64,
+    assembly_id: Option<ID>,
     requires: vector<Requirement>,
 }
 
@@ -39,7 +40,7 @@ public fun complete_requirement<T>(
 
 /// Complete the request by
 public fun complete(request: ApplicationRequest) {
-    let ApplicationRequest { action: _, version, requires } = request;
+    let ApplicationRequest { version, requires, .. } = request;
     assert!(requires.length() == 0);
     assert!(version == VERSION, EInvalidVersion);
 }
@@ -51,15 +52,23 @@ public fun complete(request: ApplicationRequest) {
 /// TODO: there may be unwanted side effects of this action, so should be held off
 ///   until further investigation
 public fun join(base: &mut ApplicationRequest, other: ApplicationRequest) {
-    let ApplicationRequest { action, version, requires } = other;
+    let ApplicationRequest { action, assembly_id, version, requires } = other;
 
     assert!(base.action == action);
     assert!(base.version == version);
     assert!(base.requires == requires);
+    assert!(base.assembly_id == assembly_id);
 }
 
+/// Get the version of the request.
 public fun version(request: &ApplicationRequest): u64 {
     request.version
+}
+
+/// Get the assembly ID of the request (may be None if the request is not associated with an assembly).
+/// Assembly requests do contain assembly ID at all times.
+public fun assembly_id(request: &ApplicationRequest): Option<ID> {
+    request.assembly_id
 }
 
 // === Builder API ===
@@ -68,12 +77,27 @@ public fun version(request: &ApplicationRequest): u64 {
 public struct ApplicationRequestBuilder {
     action: String,
     version: u64,
+    assembly_id: Option<ID>,
     requires: vector<Requirement>,
 }
 
 /// Initialize a new `ApplicationRequestBuilder` with the given action.
 public fun new(action: String): ApplicationRequestBuilder {
-    ApplicationRequestBuilder { action, requires: vector[], version: VERSION }
+    ApplicationRequestBuilder {
+        action,
+        assembly_id: option::none(),
+        requires: vector[],
+        version: VERSION,
+    }
+}
+
+/// Set the assembly ID of the request.
+public fun with_assembly_id(
+    mut builder: ApplicationRequestBuilder,
+    assembly_id: ID,
+): ApplicationRequestBuilder {
+    builder.assembly_id = option::some(assembly_id);
+    builder
 }
 
 /// Add a requirement to the request.
@@ -96,11 +120,12 @@ public fun with_version(
 
 /// Build the `ApplicationRequest` from the builder.
 public fun build(builder: ApplicationRequestBuilder): ApplicationRequest {
-    let ApplicationRequestBuilder { action, requires, version } = builder;
+    let ApplicationRequestBuilder { action, assembly_id, requires, version } = builder;
 
     ApplicationRequest {
         action,
         version,
+        assembly_id,
         requires,
     }
 }

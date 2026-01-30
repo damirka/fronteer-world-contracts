@@ -4,6 +4,7 @@ module world::custom_gate;
 use std::unit_test;
 use sui::test_scenario as ts;
 use world::{assembly::Assembly, gate, inventory_service, item, location_service, system_service};
+use format::format::dbg;
 
 const ITEM_TYPE_ID: u64 = 1;
 const ITEM_QUANTITY: u32 = 1;
@@ -17,7 +18,7 @@ fun custom_gate_scenario() {
     // - confirm creation with the system service
     // - configure the gate to require a certain item
     test.tx!(@0xa11ce, |test| {
-        let (mut assembly, cap, mut request) = gate::new(vector[0, 1, 2, 4], test.ctx());
+        let (mut assembly, owner_cap, mut request) = gate::new(vector[0, 1, 2, 4], test.ctx());
 
         // For visibility!
         // std::debug::print(&request);
@@ -26,10 +27,12 @@ fun custom_gate_scenario() {
         system_service::confirm_for_testing(&mut request);
         request.complete();
 
+        // std::debug::print(&system_service::ptb_template_for_testing());
+
         // Configure the gate to require a certain item.
         let item_requirement = inventory_service::requirement(ITEM_TYPE_ID, ITEM_QUANTITY);
-        gate::add_requirement(&mut assembly, &cap, item_requirement);
-        transfer::public_transfer(cap, test.ctx().sender());
+        gate::add_requirement(&mut assembly, &owner_cap, item_requirement);
+        transfer::public_transfer(owner_cap, test.ctx().sender());
 
         // Share the assembly (the only allowed storage action).
         assembly.share();
@@ -49,6 +52,9 @@ fun custom_gate_scenario() {
         location_service::verify_proximity(&mut request, vector[0, 1, 2, 4]);
         inventory_service::verify_possession(&mut request, &item);
 
+        std::debug::print(&location_service::ptb_template_for_testing());
+        std::debug::print(&inventory_service::ptb_template_for_testing(assembly));
+
         request.complete();
 
         // No need to store a test item.
@@ -56,15 +62,4 @@ fun custom_gate_scenario() {
     }));
 
     test.end();
-}
-
-use fun tx as ts::Scenario.tx;
-
-#[allow(unused_function)]
-macro fun tx($scenario: &mut ts::Scenario, $sender: address, $f: |&mut ts::Scenario| -> _) {
-    let test = $scenario;
-    let sender = $sender;
-    test.next_tx(sender);
-    $f(test);
-    test.next_tx(sender);
 }
