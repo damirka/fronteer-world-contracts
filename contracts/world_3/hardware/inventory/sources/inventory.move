@@ -1,5 +1,7 @@
 module inventory::inventory;
 
+use sui::bcs;
+
 use world::item::{Item, ItemBag};
 use world::module_::Module;
 use world::request;
@@ -14,23 +16,38 @@ public struct Inventory has store {
 // TODO Behaviour versioning
 
 public struct Withdrawal() has copy, drop, store;
-public struct Deposit() has copy, drop, store;
+public struct Deposit has copy, drop, store {
+    type_id: Option<u64>,
+    min_quantity: Option<u64>,
+    max_quantity: Option<u64>,
+}
+
 
 public fun deposit(
     request: &mut Request,
     module_: &mut Module<Inventory>,
     item: Item,
 ) {
-    let inventory = module_.inner_mut(internal::permit());
-
-    assert!(inventory.unused >= item.quantity());
-    inventory.unused = inventory.unused - item.quantity();
-    inventory.items.deposit(item);
-
-    let (_, frame) = request.satisfy_on_module<Inventory, Deposit>(
+    let (req, frame) = request.satisfy_on_module<Inventory, Deposit>(
         module_,
         internal::permit()
     );
+
+    let mut bcs = bcs::new(req.data());
+    let deposit = Deposit {
+        type_id: bcs.peel_option!(|b| b.peel_u64()),
+        min_quantity: bcs.peel_option!(|b| b.peel_u64()),
+        max_quantity: bcs.peel_option!(|b| b.peel_u64()),
+    };
+
+    assert!(deposit.type_id.is_none_or!(|id| id == item.type_id()));
+    assert!(deposit.min_quantity.is_none_or!(|q| *q <= item.quantity()));
+    assert!(deposit.max_quantity.is_none_or!(|q| *q >= item.quantity()));
+
+    let inventory = module_.inner_mut(internal::permit());
+    assert!(inventory.unused >= item.quantity());
+    inventory.unused = inventory.unused - item.quantity();
+    inventory.items.deposit(item);
 
     // TODO: Provenance of `item` (prevent callers from teleporting items by
     // starting concurrent requests in distinct structures and swapping items
