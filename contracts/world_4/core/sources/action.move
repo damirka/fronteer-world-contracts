@@ -10,7 +10,8 @@ public struct Action has drop, store {
     version: u64,
 }
 
-public fun new(requirements: vector<Requirement>): Action {
+public fun new(mut requirements: vector<Requirement>): Action {
+    requirements.reverse(); // declaration order
     Action { requirements, version: VERSION }
 }
 
