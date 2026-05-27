@@ -4,12 +4,12 @@ use core::{
     entity::Entity,
     item::{Self, Item, ItemBag},
     request::Request,
-    requirement::{Self, Requirement}
+    requirement::{Self, Requirement},
+    transaction as tx
 };
+use ptb::ptb;
 use std::string::String;
 use sui::bcs;
-
-// use ptb::ptb;
 
 public struct ItemRequirement has drop {
     type_id: Option<u64>,
@@ -66,11 +66,12 @@ public fun withdraw_requirement(
         }),
     )
 }
+
 // TODO Behaviour versioning
 
 public fun deposit(e: &mut Entity, request: &mut Request, item: Item) {
     let inventory = e.module_mut<Inventory>(request, internal::permit()).inner_mut();
-    let (requirement, frame) = request.satisfy(internal::permit<Deposit>());
+    let (requirement, frame) = request.take_next(internal::permit<Deposit>());
 
     // Enforce extra  if there are any.
     let item_req = parse_bcs_requirement(requirement.data());
@@ -92,26 +93,6 @@ fun parse_bcs_requirement(bytes: vector<u8>): ItemRequirement {
     }
 }
 
-//     let inventory = module_.inner_mut(internal::permit());
-
-//     assert!(inventory.unused >= item.quantity());
-//     inventory.unused = inventory.unused - item.quantity();
-//     inventory.items.deposit(item);
-
-//     let (_, frame) = request.satisfy_on_module<Inventory, Deposit>(
-//         module_,
-//         internal::permit(),
-//     );
-
-//     // TODO: Provenance of `item` (prevent callers from teleporting items by
-//     // starting concurrent requests in distinct structures and swapping items
-//     // at a distance)
-
-//     // TODO: Offer `satisfy` variants that don't supply a frame to push further
-//     // requirements into?
-//     request.enqueue(frame);
-// }
-
 public fun withdraw(
     e: &mut Entity,
     request: &mut Request,
@@ -120,7 +101,7 @@ public fun withdraw(
     ctx: &mut TxContext,
 ): Item {
     let inventory = e.module_mut<Inventory>(request, internal::permit()).inner_mut();
-    let (requirement, frame) = request.satisfy(internal::permit<Withdrawal>());
+    let (requirement, frame) = request.take_next(internal::permit<Withdrawal>());
 
     // enforce constraints
     let item_req = parse_bcs_requirement(requirement.data());
@@ -132,40 +113,42 @@ public fun withdraw(
     let item = inventory.items.withdraw(type_id, quantity, ctx);
     inventory.unused = inventory.unused + item.quantity();
 
-    // let (request, frame) = request.satisfy_on_module<Inventory, Withdrawal>(
-    //     module_,
-    //     internal::permit(),
-    // );
-
-    // TODO: Provenance of `item` (prevent callers from teleporting items by
-    // starting concurrent requests in distinct structures and swapping items
-    // at a distance)
-
     request.enqueue(frame);
     item
 }
 
-// // === PTB Templates ===
+// === PTB Templates ===
 
-// public fun deposit_template(
-//     ptb: &mut ptb::Transaction,
-//     mut args: vector<ptb::Argument>,
-// ): vector<ptb::Argument> {
-//     assert!(args.length() == 1);
-//     let item = args.pop_back();
+public fun deposit_template(
+    req: &Requirement,
+    ptb: &mut ptb::Transaction,
+    mut args: vector<ptb::Argument>,
+): vector<ptb::Argument> {
+    assert!(req.is<Deposit>());
+    assert!(args.length() <= 1);
 
-//     ptb.command(
-//         ptb::move_call(
-//             "mvr:@frontier/inventory",
-//             "inventory",
-//             "deposit",
-//             vector[request::request(), request::module_(), item],
-//             vector[],
-//         ),
-//     );
+    // NOTE: if you're building a complex PTB by combining different behaviors in
+    //       an action, then you know what you're doing.
+    //       if not, we tell frontend what the requirement is.
+    let item = if (args.length() == 1) {
+        args.pop_back()
+    } else {
+        // TODO: unpack Deposit data
+        tx::item(option::none(), option::none())
+    };
 
-//     vector[]
-// }
+    ptb.command(
+        ptb::move_call(
+            "mvr:@frontier/inventory",
+            "inventory",
+            "deposit",
+            vector[tx::entity(), tx::request(), item],
+            vector[],
+        ),
+    );
+
+    vector[]
+}
 
 // public fun withdraw_template(
 //     ptb: &mut ptb::Transaction,

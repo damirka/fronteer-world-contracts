@@ -19,7 +19,7 @@ fun install_a_module_try_it() {
     e.complete_request(r); // empty request for now
 
     // I explicitly expose FUEL deposit action for this Inventory
-    let r = e.expose(
+    let r = e.enable_action(
         "deposit to SU-01",
         action::new(vector[
             // just this, no other params
@@ -48,9 +48,9 @@ fun install_a_module_try_it() {
 
     // ==== Going further! ===
 
-    // I addition to that, I add an exchange action. Since I have a container for
-    // fuel, I
-    let r = e.expose(
+    // I addition to that, I add an exchange action.
+    // Since I have a container for fuel
+    let r = e.enable_action(
         "exchange tickets for fuel 1:1",
         action::new(vector[
             inventory::deposit_requirement(
@@ -65,6 +65,13 @@ fun install_a_module_try_it() {
                 option::none(), // min_quantity - we're accepting donations :)
                 option::some(1), // max_quantity
             ),
+            // NOTE: leftover from a conversation, but we can imagine that
+            //       someone says "this action can only be performed if you're
+            //       standing next to X", extra location gating opportunity for
+            //       custom actions.
+            // location_service::proximity_requirement(
+            //     x"CAFFEE",
+            // )
         ]),
         ctx,
     );
@@ -84,4 +91,27 @@ fun install_a_module_try_it() {
 
     destroy(fuel); // the one we exchanged
     destroy(e);
+}
+
+#[mode(test)]
+fun ptb_template() {
+    use core::transaction as tx;
+    use ptb::ptb;
+
+    let action = action::new(vector[
+        inventory::deposit_requirement(
+            "storage unit (01)",
+            option::some(TICKET_TYPE_ID), // type_id
+            option::some(1), // min_quantity
+            option::some(1), // max_quantity
+        ),
+        inventory::withdraw_requirement(
+            "storage unit (01)",
+            option::some(FUEL_TYPE_ID), // type_id
+            option::none(), // min_quantity - we're accepting donations :)
+            option::some(1), // max_quantity
+        ),
+    ]);
+
+
 }
