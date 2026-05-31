@@ -14,7 +14,8 @@ fun install_a_module_try_it() {
     let mut e = entity::new(ctx);
 
     // I install Inventory and call it storage unit
-    let r = e.install("storage unit (01)", inventory::new(ctx), ctx);
+    // BEFORE: let r = e.install("storage unit (01)", inventory::new(ctx), ctx);
+    let r = inventory::install(&mut e, "storage unit (01)", ctx);
 
     e.complete_request(r); // empty request for now
 
@@ -112,6 +113,4 @@ fun ptb_template() {
             option::some(1), // max_quantity
         ),
     ]);
-
-
 }

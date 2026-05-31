@@ -39,3 +39,9 @@ public fun location_target(): ptb::Argument {
 public fun proof(): ptb::Argument {
     ptb::ext_input<PTB>("location:proof")
 }
+
+public fun owner_cap(id: ID): ptb::Argument {
+    let mut input: String = "owner:";
+    input.append(id.to_address().to_string());
+    ptb::ext_input<PTB>(input)
+}

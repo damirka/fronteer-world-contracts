@@ -15,6 +15,6 @@ public fun new(mut requirements: vector<Requirement>): Action {
     Action { requirements, version: VERSION }
 }
 
-public(package) fun to_request(action: &Action, structure_id: Option<ID>): Request {
-    request::new(structure_id, action.requirements.map_ref!(|r| r.clone()))
+public(package) fun to_request(action: &Action, entity_id: Option<ID>): Request {
+    request::new(entity_id, action.requirements.map_ref!(|r| r.clone()))
 }

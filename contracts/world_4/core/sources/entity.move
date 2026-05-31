@@ -2,7 +2,7 @@
 module core::entity;
 
 use core::{action::Action, mod::{Self, Module}, request::{Self, Request}};
-use std::string::String;
+use std::{string::String, type_name};
 use sui::{dynamic_field as df, vec_map::{Self, VecMap}};
 
 const VERSION: u64 = 1;
@@ -36,21 +36,6 @@ public fun new(ctx: &mut TxContext /* TODO: ACL */): /* TODO: ACL */ Entity {
     e
 }
 
-/// We could move `install` behavior to `Inventory` or any other module that
-/// installs it, and this way we can assert on the version of the `Entity`.
-///
-/// Assertions can be soft, eg `>=` to allow Entity version bump and not require
-/// module upgrade.
-public fun install_v2<T: store>(
-    e: &mut Entity,
-    name: String,
-    inner: T,
-    _: internal::Permit<T>,
-    ctx: &mut TxContext,
-): Request {
-    abort
-}
-
 /// Whether or not `T` is allowed to be installed is decided by the AdminACL
 /// requirement. Hence, while the API is public, it's impossible to call this
 /// function without resolving its spawned requirements.
@@ -61,11 +46,13 @@ public fun install<T: store>(
     /* TODO: OwnerCap */
     name: String,
     inner: T,
+    version: u64,
+    _: internal::Permit<T>,
     ctx: &mut TxContext,
 ): Request {
     assert!(e.version == VERSION /* TODO: Code */);
 
-    let mod = mod::new(name, inner, ctx);
+    let mod = mod::new(name, inner, version, ctx);
 
     e.lock();
     e.add(ModuleKey(name), mod);
@@ -89,8 +76,9 @@ public fun uninstall<T: store>(
     e: &mut Entity,
     /* TODO: OwnerCap */
     name: String,
+    _: internal::Permit<T>,
     ctx: &mut TxContext,
-): (T, Request) {
+): (Module<T>, Request) /* Should it be (T, Request) ? */  {
     assert!(e.version == VERSION /* TODO: Code */);
 
     abort
@@ -105,6 +93,7 @@ public fun enable_action<A: store + drop>(
     ctx: &mut TxContext,
 ): Request {
     assert!(e.version == VERSION /* TODO: Code */);
+    assert!(type_name::with_defining_ids<Action>() == type_name::with_defining_ids<A>());
 
     e.lock();
 
@@ -154,9 +143,20 @@ public fun interact(e: &mut Entity, action: String, ctx: &mut TxContext): Reques
     action.to_request(option::some(e.id.to_inner()))
 }
 
+// TODO: expose Module<T>.version field so modules can control their versions
+
+/// NOTE: untyped check for existence of a Module without specifying `T`
+public fun has_module(e: &Entity, name: String): bool {
+    e.exists(ModuleKey(name))
+}
+
+public fun has_module_with_type<T: store>(e: &Entity, name: String): bool {
+    e.exists_with_type<_, T>(ModuleKey(name))
+}
+
 /// Mutable access to the module is only allowed during interaction.
 /// Requires:
-/// - Request links to `structure_id`
+/// - Request links to `entity_id`
 /// - Request's next requirement's name == module name
 public fun module_mut<T: store>(
     e: &mut Entity,
@@ -165,7 +165,7 @@ public fun module_mut<T: store>(
 ): &mut Module<T> {
     assert!(e.version == VERSION /* TODO: Code */);
     assert!(e.is_locked() /* TODO: Code */);
-    assert!(req.structure_id().is_some_and!(|id| id == e.id.to_inner()) /* TODO: Code */);
+    assert!(req.entity_id().is_some_and!(|id| id == e.id.to_inner()) /* TODO: Code */);
 
     let name = req.next().module_name().destroy_or!(abort /* TODO: Code */);
     &mut e[ModuleKey(name)]
@@ -173,11 +173,11 @@ public fun module_mut<T: store>(
 
 /// TODO: currently request can only be completed on Entity, and this is part of
 /// the design. However, it is possible to change the implementation so that Request
-/// that doesn't contain `structure_id()` could be completed without an entity.
+/// that doesn't contain `entity_id()` could be completed without an entity.
 ///
-/// TODO: Now that I think about it, it shouldn't be `structure_id` :)
+/// TODO: Now that I think about it, it shouldn't be `entity_id` :)
 public fun complete_request(e: &mut Entity, req: Request) {
-    req.structure_id().do!(|id| assert!(id == e.id.to_inner() /* TODO: Code */));
+    req.entity_id().do!(|id| assert!(id == e.id.to_inner() /* TODO: Code */));
     req.complete();
     e.unlock();
 }
@@ -203,6 +203,10 @@ fun is_locked(e: &Entity): bool {
 
 fun exists<K: copy + drop + store>(e: &Entity, key: K): bool {
     df::exists(&e.id, key)
+}
+
+fun exists_with_type<K: copy + drop + store, V: store>(e: &Entity, key: K): bool {
+    df::exists_with_type<_, V>(&e.id, key)
 }
 
 fun add<K: copy + drop + store, T: store>(e: &mut Entity, key: K, value: T) {

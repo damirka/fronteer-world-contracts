@@ -1,0 +1,5 @@
+- structure_id -> entity_id
+- owner_service + tx::owner_cap(ID)
+- adds exists + exists_with_type
+- enables modules' versioning
+

@@ -5,7 +5,7 @@ use core::requirement::Requirement;
 public use fun destroy_empty_frame as Frame.destroy_empty;
 
 public struct Request {
-    structure_id: Option<ID>,
+    entity_id: Option<ID>,
     requires: vector<Requirement>,
 }
 
@@ -13,9 +13,9 @@ public struct Frame {
     pending: vector<Requirement>,
 }
 
-public(package) fun new(structure_id: Option<ID>, requires: vector<Requirement>): Request {
+public(package) fun new(entity_id: Option<ID>, requires: vector<Requirement>): Request {
     Request {
-        structure_id,
+        entity_id,
         requires,
     }
 }
@@ -62,8 +62,8 @@ public fun requires(r: &Request): &vector<Requirement> {
     &r.requires
 }
 
-public fun structure_id(r: &Request): Option<ID> {
-    r.structure_id
+public fun entity_id(r: &Request): Option<ID> {
+    r.entity_id
 }
 
 // Wish we could return Option<&Requirement> here, but we cannot.

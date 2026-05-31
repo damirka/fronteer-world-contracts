@@ -11,6 +11,8 @@ use ptb::ptb;
 use std::string::String;
 use sui::bcs;
 
+const VERSION: u64 = 1;
+
 public struct ItemRequirement has drop {
     type_id: Option<u64>,
     min_quantity: Option<u64>,
@@ -25,11 +27,32 @@ public struct Inventory has store {
     items: ItemBag,
 }
 
-public fun new(/* TODO: Auth */ ctx: &mut TxContext): Inventory {
-    Inventory {
-        unused: 100,
-        items: item::new_bag(ctx),
-    }
+public fun install(e: &mut Entity, name: String, ctx: &mut TxContext): Request {
+    e.install(
+        name,
+        Inventory { unused: 0, items: item::new_bag(ctx) },
+        VERSION,
+        internal::permit(),
+        ctx,
+    )
+}
+
+public fun uninstall(e: &mut Entity, name: String, ctx: &mut TxContext): Request {
+    let (mod, _request) = e.uninstall(
+        name,
+        internal::permit<Inventory>(),
+        ctx,
+    );
+
+    assert!(mod.version() == VERSION /* TODO: Code */);
+
+    let Inventory { unused: _, items: _items } = mod.unwrap(internal::permit());
+    // do assertions on unused and items needs to be empty
+    // alternatively, send Inventory to admin address to unpack?
+    // almost anything can happen here, so..
+    abort
+
+    // somehow return Request here, maybe from uninstall?
 }
 
 // NOTE: Ashok, I don't like that name is not enforced. Maybe there's a better way?
