@@ -27,6 +27,10 @@ public struct Inventory has store {
     items: ItemBag,
 }
 
+/// NOTE: we assume that there won't be any extra requirements here, right?
+///       as in, we really don't want to have requirements as Requirements, but
+///       we probably do want to take arguments and assert on inputs here.
+/// NOTE: we don't require OwnerCap here, cool, right? I knew you'd like this, Ashok
 public fun install(e: &mut Entity, name: String, ctx: &mut TxContext): Request {
     e.install(
         name,
@@ -38,15 +42,17 @@ public fun install(e: &mut Entity, name: String, ctx: &mut TxContext): Request {
 }
 
 public fun uninstall(e: &mut Entity, name: String, ctx: &mut TxContext): Request {
-    let (mod, _request) = e.uninstall(
+    // TODO: should it be Module<T> or just T?
+    //       just T would make it much easier, but then version check is a df read.
+    assert!(e.has_module_with_type<Inventory>(name) /* TODO: Code */); // this check can be omitted
+    assert!(e.module_version<Inventory>(name) == VERSION /* TODO: Code */);
+
+    let (Inventory { unused: _, items: _items }, _request) = e.uninstall(
         name,
         internal::permit<Inventory>(),
         ctx,
     );
 
-    assert!(mod.version() == VERSION /* TODO: Code */);
-
-    let Inventory { unused: _, items: _items } = mod.unwrap(internal::permit());
     // do assertions on unused and items needs to be empty
     // alternatively, send Inventory to admin address to unpack?
     // almost anything can happen here, so..
@@ -90,10 +96,14 @@ public fun withdraw_requirement(
     )
 }
 
-// TODO Behaviour versioning
+// TODO Behavior versioning
 
 public fun deposit(e: &mut Entity, request: &mut Request, item: Item) {
-    let inventory = e.module_mut<Inventory>(request, internal::permit()).inner_mut();
+    let mod = e.module_mut<Inventory>(request, internal::permit());
+
+    assert!(mod.version() == VERSION /* TODO: Code */);
+
+    let inventory = mod.inner_mut();
     let (requirement, frame) = request.take_next(internal::permit<Deposit>());
 
     // Enforce extra  if there are any.
@@ -173,23 +183,24 @@ public fun deposit_template(
     vector[]
 }
 
-// public fun withdraw_template(
-//     ptb: &mut ptb::Transaction,
-//     mut args: vector<ptb::Argument>,
-// ): vector<ptb::Argument> {
-//     assert!(args.length() == 2);
-//     let quantity = args.pop_back();
-//     let type_id = args.pop_back();
+public fun withdraw_template(
+    req: &Requirement,
+    ptb: &mut ptb::Transaction,
+    mut args: vector<ptb::Argument>,
+): vector<ptb::Argument> {
+    assert!(req.is<Withdrawal>());
+    assert!(args.length() == 2);
 
-//     let item = ptb.command(
-//         ptb::move_call(
-//             "mvr:@frontier/inventory",
-//             "inventory",
-//             "withdraw",
-//             vector[request::request(), request::module_(), type_id, quantity],
-//             vector[],
-//         ),
-//     );
+    let (quantity, type_id) = (args.pop_back(), args.pop_back());
+    let item = ptb.command(
+        ptb::move_call(
+            "mvr:@frontier/inventory",
+            "inventory",
+            "withdraw",
+            vector[tx::entity(), tx::request(), type_id, quantity],
+            vector[],
+        ),
+    );
 
-//     vector[item]
-// }
+    vector[item]
+}

@@ -21,8 +21,7 @@ public fun verify_proximity_proof(
     frame.destroy_empty();
 }
 
-#[allow(unused)]
-fun verify_requirement_template(
+public fun verify_requirement_template(
     req: &Requirement,
     ptb: &mut ptb::Transaction,
     args: vector<ptb::Argument>,

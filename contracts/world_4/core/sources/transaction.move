@@ -29,6 +29,18 @@ public fun item(type_id: Option<u64>, quantity: Option<u64>): ptb::Argument {
     ptb::ext_input<PTB>(input)
 }
 
+public fun item_quantity(quantity: u64): ptb::Argument {
+    let mut input: String = "item_quantity:";
+    input.append(quantity.to_string());
+    ptb::ext_input<PTB>(input)
+}
+
+public fun item_type_id(type_id: u64): ptb::Argument {
+    let mut input: String = "item_quantity:";
+    input.append(type_id.to_string());
+    ptb::ext_input<PTB>(input)
+}
+
 /// TODO: we're not sold on the name and the meaning
 ///       eg it can be both Character and another entity?
 ///       as in when turret is shooting at a "target"

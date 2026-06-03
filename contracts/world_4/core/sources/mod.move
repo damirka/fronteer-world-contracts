@@ -5,11 +5,13 @@
 module core::mod;
 
 use std::string::String;
+use sui::bag::{Self, Bag};
 
 public struct Module<T: store> has store {
     version: u64,
     inner: T,
     name: String,
+    extra_fields: Bag,
 }
 
 /// Can only be called by Entity.
@@ -17,20 +19,23 @@ public(package) fun new<T: store>(
     name: String,
     inner: T,
     version: u64,
-    _ctx: &mut TxContext,
+    ctx: &mut TxContext,
 ): Module<T> {
     Module {
         name,
         inner,
         version,
+        extra_fields: bag::new(ctx),
     }
 }
 
 /// TODO: think about authorization guards on this function. It has to be public
 ///       (though, now that I think about it may be unwrapped in a different way?)
 ///       the reason we add explicit unwrap is to maintain version access... hmm
-public fun unwrap<T: store>(m: Module<T>, _: internal::Permit<T>): T {
-    let Module { inner, .. } = m;
+/// TODO: maybe remove `Permit` requirement
+public(package) fun unwrap<T: store>(m: Module<T>, _: internal::Permit<T>): T {
+    let Module { inner, extra_fields, .. } = m;
+    extra_fields.destroy_empty();
     inner
 }
 

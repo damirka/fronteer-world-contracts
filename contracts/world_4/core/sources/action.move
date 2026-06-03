@@ -15,6 +15,23 @@ public fun new(mut requirements: vector<Requirement>): Action {
     Action { requirements, version: VERSION }
 }
 
-public(package) fun to_request(action: &Action, entity_id: Option<ID>): Request {
-    request::new(entity_id, action.requirements.map_ref!(|r| r.clone()))
+/// Convert an `Action` to a `Request` with `pre_requirements` added before
+/// Action's requirements.
+public(package) fun to_request(
+    action: &Action,
+    entity_id: Option<ID>,
+    pre_requirements: vector<Requirement>,
+): Request {
+    let mut requirements = action.requirements.map_ref!(|r| r.clone());
+    pre_requirements.do!(|r| requirements.push_back(r));
+
+    // NOTE: ^ above is to maintain declaration and resolution order correctly
+    //       we declare in order, but resolve in reverse.
+
+    request::new(entity_id, requirements)
+}
+
+#[mode(test)]
+public fun requirements(a: &Action): &vector<Requirement> {
+    &a.requirements
 }

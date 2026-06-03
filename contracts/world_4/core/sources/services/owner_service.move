@@ -6,7 +6,7 @@ use sui::bcs;
 
 public struct Owner(ID) has drop;
 
-public fun owner_requirement(owner_cap_id: ID): Requirement {
+public fun requirement(owner_cap_id: ID): Requirement {
     requirement::from_config(option::none(), Owner(owner_cap_id))
 }
 
@@ -16,14 +16,23 @@ public fun verify_owner_cap(
     request: &mut Request,
     // owner_cap:
 ) {
-    // TODO: assert whatever happens here
+    // TODO: assert on whatever happens here
     let (requirement, frame) = request.take_next(internal::permit<Owner>());
     let _owner_cap_id = bcs::new(requirement.data()).peel_address().to_id();
     frame.destroy_empty();
 }
 
 #[allow(unused)]
-fun verify_owner_cap_template(
+public fun verify_as_admin(
+    request: &mut Request,
+    // admin
+) {
+    let (requirement, frame) = request.take_next(internal::permit<Owner>());
+    let _owner_cap_id = bcs::new(requirement.data()).peel_address().to_id();
+    frame.destroy_empty();
+}
+
+public fun verify_owner_cap_template(
     req: &Requirement,
     ptb: &mut ptb::Transaction,
     mut args: vector<ptb::Argument>,

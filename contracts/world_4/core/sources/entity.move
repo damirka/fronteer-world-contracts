@@ -1,7 +1,13 @@
 #[allow(unused)]
 module core::entity;
 
-use core::{action::Action, mod::{Self, Module}, request::{Self, Request}};
+use core::{
+    action::Action,
+    location_service,
+    mod::{Self, Module},
+    owner_service,
+    request::{Self, Request}
+};
 use std::{string::String, type_name};
 use sui::{dynamic_field as df, vec_map::{Self, VecMap}};
 
@@ -17,6 +23,7 @@ public struct Entity has key {
     count: u64,
     version: u64,
     type_id: u16,
+    owner_cap_id: ID,
     location_hash: vector<u8>,
     // df: ActionsKey() => VecMap<String, Action>,
     // df: ModuleKey(String) => Module<T>,
@@ -29,6 +36,7 @@ public fun new(ctx: &mut TxContext /* TODO: ACL */): /* TODO: ACL */ Entity {
         count: 0,
         version: VERSION,
         type_id: STRUCTURE_TYPE_ID,
+        owner_cap_id: @0.to_id(), // TODO: create OwnerCap and share it somehow
         location_hash: vector[], // TODO: add location_hash input
     };
 
@@ -43,7 +51,6 @@ public fun new(ctx: &mut TxContext /* TODO: ACL */): /* TODO: ACL */ Entity {
 /// System approval makes sure that `T` is one of the approved modules.
 public fun install<T: store>(
     e: &mut Entity,
-    /* TODO: OwnerCap */
     name: String,
     inner: T,
     version: u64,
@@ -59,7 +66,7 @@ public fun install<T: store>(
 
     request::new(
         option::some(e.id.to_inner()),
-        vector[], // TODO: ACL
+        vector[owner_service::requirement(e.owner_cap_id)], // TODO: ACL
     )
 }
 
@@ -74,14 +81,19 @@ public fun install<T: store>(
 /// Some form of ID-ing modules can be unavoidable...
 public fun uninstall<T: store>(
     e: &mut Entity,
-    /* TODO: OwnerCap */
     name: String,
-    _: internal::Permit<T>,
+    permit: internal::Permit<T>,
     ctx: &mut TxContext,
-): (Module<T>, Request) /* Should it be (T, Request) ? */  {
+): (T, Request) {
     assert!(e.version == VERSION /* TODO: Code */);
 
-    abort
+    let inner = e.remove<_, Module<T>>(ModuleKey(name)).unwrap(permit);
+    let request = request::new(
+        option::some(e.id.to_inner()),
+        vector[owner_service::requirement(e.owner_cap_id)],
+    );
+
+    (inner, request)
 }
 
 // Note to self: we can take T for upgradeability; something that `@potatoes/identify` can do.
@@ -104,7 +116,7 @@ public fun enable_action<A: store + drop>(
 
     request::new(
         option::some(e.id.to_inner()),
-        vector[], // TODO: ACL
+        vector[owner_service::requirement(e.owner_cap_id)], // TODO: ACL
     )
 }
 
@@ -124,7 +136,7 @@ public fun disable_action<A: store + drop>(
 
     request::new(
         option::some(e.id.to_inner()),
-        vector[], // TODO: ???
+        vector[owner_service::requirement(e.owner_cap_id)], // TODO: ???
     )
 }
 
@@ -140,18 +152,31 @@ public fun interact(e: &mut Entity, action: String, ctx: &mut TxContext): Reques
 
     // TODO: here add system requirements and then enqueue action requirements
 
-    action.to_request(option::some(e.id.to_inner()))
+    action.to_request(
+        option::some(e.id.to_inner()),
+        // NOTE: these are "pre_requirements", added before action's
+        vector[location_service::proximity_requirement(e.location_hash)],
+    )
 }
 
-// TODO: expose Module<T>.version field so modules can control their versions
-
 /// NOTE: untyped check for existence of a Module without specifying `T`
+///       allows asserting on duplicate names.
 public fun has_module(e: &Entity, name: String): bool {
     e.exists(ModuleKey(name))
 }
 
+/// Check that the module with the given type exists.
+/// Allows assertions before requesting module in `module_mut`.
 public fun has_module_with_type<T: store>(e: &Entity, name: String): bool {
     e.exists_with_type<_, T>(ModuleKey(name))
+}
+
+/// Get version of a specific module.
+/// This allows modules to assert on the installed version.
+public fun module_version<T: store>(e: &Entity, name: String): u64 {
+    let key = ModuleKey(name);
+    assert!(e.exists_with_type<_, T>(key) /* TODO: Code */);
+    (&e[key]: &Module<T>).version()
 }
 
 /// Mutable access to the module is only allowed during interaction.
@@ -232,3 +257,8 @@ fun borrow_mut<K: copy + drop + store, T: store>(e: &mut Entity, key: K): &mut T
     assert!(df::exists_with_type<_, T>(&e.id, key) /* TODO: Code */);
     df::borrow_mut(&mut e.id, key)
 }
+
+// === Templates ===
+
+#[allow(unused)]
+fun interact_template() {}
